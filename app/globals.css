@@ -1,0 +1,113 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-sans: "Inter", system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  color: theme("colors.ink.DEFAULT");
+  background: #fff;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Reusable component classes -------------------------------------- */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-soft;
+  }
+  .btn-ghost {
+    @apply btn bg-white text-ink-soft ring-1 ring-slate-200 hover:bg-slate-50;
+  }
+  .btn-subtle {
+    @apply btn bg-slate-100 text-ink-soft hover:bg-slate-200;
+  }
+  .field-label {
+    @apply block text-sm font-medium text-ink-soft mb-1.5;
+  }
+  .field-input {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-ink
+           placeholder:text-slate-400 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100;
+  }
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-soft;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  }
+}
+
+/* ── Print / A4 rules for PDF export ─────────────────────────────── */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm 14mm 16mm 14mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    width: 100% !important;
+    min-height: auto !important;
+  }
+  tr,
+  .prevent-break {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+/* On-screen A4 sheet preview */
+.print-sheet {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  background: #fff;
+}
+
+/* Scaled A4 previews (zoom keeps layout + height correct). Smaller on phones. */
+.doc-preview-scale {
+  zoom: 0.6;
+}
+.doc-preview-fit {
+  zoom: 1;
+}
+@media (max-width: 1024px) {
+  .doc-preview-scale {
+    zoom: 0.5;
+  }
+}
+@media (max-width: 640px) {
+  .doc-preview-scale {
+    zoom: 0.42;
+  }
+  .doc-preview-fit {
+    zoom: 0.44;
+  }
+}
+@media print {
+  .doc-preview-scale,
+  .doc-preview-fit {
+    zoom: 1 !important;
+  }
+}
+[dir="rtl"] {
+  font-family: var(--font-cairo), var(--font-sans);
+}
