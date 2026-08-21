@@ -55,7 +55,13 @@ function EditDocumentInner() {
         .eq("document_id", doc.id)
         .order("sort_order", { ascending: true });
 
-      const payload = (doc.payload ?? {}) as { recipient?: string; body?: string };
+      const payload = (doc.payload ?? {}) as {
+        recipient?: string;
+        body?: string;
+        layout?: "standard" | "zatca";
+        sellerCr?: string;
+        sellerPhone?: string;
+      };
       setExisting({
         id: doc.id,
         docType: doc.doc_type,
@@ -73,6 +79,9 @@ function EditDocumentInner() {
         })),
         recipient: payload.recipient ?? "",
         body: payload.body ?? "",
+        layout: payload.layout ?? "standard",
+        sellerCr: payload.sellerCr ?? "",
+        sellerPhone: payload.sellerPhone ?? "",
       });
       setState("ready");
     })();

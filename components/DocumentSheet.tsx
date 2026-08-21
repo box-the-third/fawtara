@@ -1,6 +1,7 @@
 import type { DocType, DocStatus } from "@/lib/database.types";
 import { docTypeMeta } from "@/lib/constants";
 import { formatMoney, formatDate } from "@/lib/money";
+import ZatcaInvoiceSheet from "@/components/ZatcaInvoiceSheet";
 
 export type SheetItem = {
   description: string;
@@ -32,6 +33,11 @@ export type SheetData = {
   taxAmount: number;
   total: number;
   payload: { recipient?: string; body?: string; salary?: string; role?: string };
+  /** Invoice layout style. Defaults to the standard single-language sheet. */
+  layout?: "standard" | "zatca";
+  /** ZATCA layout only: seller commercial-registration number & phone. */
+  sellerCr?: string;
+  sellerPhone?: string;
 };
 
 const T = {
@@ -70,6 +76,11 @@ const T = {
 };
 
 export default function DocumentSheet({ data }: { data: SheetData }) {
+  // Bilingual ZATCA layout is an alternative style for tax invoices.
+  if (data.layout === "zatca" && data.docType === "INVOICE") {
+    return <ZatcaInvoiceSheet data={data} />;
+  }
+
   const meta = docTypeMeta(data.docType);
   const dir = data.isRtl ? "rtl" : "ltr";
   const t = data.isRtl ? T.ar : T.en;

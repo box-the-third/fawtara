@@ -51,7 +51,13 @@ function DocumentViewInner() {
           : Promise.resolve({ data: null }),
       ]);
       const m = docTypeMeta(doc.doc_type);
-      const payload = (doc.payload ?? {}) as { recipient?: string; body?: string };
+      const payload = (doc.payload ?? {}) as {
+        recipient?: string;
+        body?: string;
+        layout?: "standard" | "zatca";
+        sellerCr?: string;
+        sellerPhone?: string;
+      };
       const clientRow = clientRes.data as
         | { name: string; company_name: string | null; vat_number: string | null; address: string | null }
         | null;
@@ -86,6 +92,9 @@ function DocumentViewInner() {
         taxAmount: Number(doc.tax_amount),
         total: Number(doc.total_amount),
         payload,
+        layout: payload.layout ?? "standard",
+        sellerCr: payload.sellerCr ?? "",
+        sellerPhone: payload.sellerPhone ?? "",
       });
       setMeta({ docId: doc.id, status: doc.status, number: doc.document_number, financial: m.financial });
       setState("ready");

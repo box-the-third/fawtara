@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { DOC_TYPES, docTypeMeta, CURRENCIES } from "@/lib/constants";
@@ -41,6 +41,9 @@ export type ExistingDoc = {
   items: Item[];
   recipient: string;
   body: string;
+  layout: "standard" | "zatca";
+  sellerCr: string;
+  sellerPhone: string;
 };
 
 export default function DocumentBuilder({
@@ -79,6 +82,34 @@ export default function DocumentBuilder({
   );
   const [recipient, setRecipient] = useState(existing?.recipient ?? "");
   const [body, setBody] = useState(existing?.body ?? "");
+  const [layout, setLayout] = useState<"standard" | "zatca">(existing?.layout ?? "standard");
+  const [sellerCr, setSellerCr] = useState(existing?.sellerCr ?? "");
+  const [sellerPhone, setSellerPhone] = useState(existing?.sellerPhone ?? "");
+
+  // For new invoices, prefill seller CR/phone from the last one used (per org).
+  useEffect(() => {
+    if (existing) return;
+    try {
+      const raw = localStorage.getItem(`fawtara-seller-${org.id}`);
+      if (raw) {
+        const s = JSON.parse(raw) as { cr?: string; phone?: string };
+        if (s.cr) setSellerCr(s.cr);
+        if (s.phone) setSellerPhone(s.phone);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [existing, org.id]);
+
+  // Remember seller CR/phone once entered so the next invoice is pre-filled.
+  useEffect(() => {
+    if (layout !== "zatca" || (!sellerCr && !sellerPhone)) return;
+    try {
+      localStorage.setItem(`fawtara-seller-${org.id}`, JSON.stringify({ cr: sellerCr, phone: sellerPhone }));
+    } catch {
+      /* ignore */
+    }
+  }, [layout, sellerCr, sellerPhone, org.id]);
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -115,6 +146,9 @@ export default function DocumentBuilder({
     taxAmount: totals.taxAmount,
     total: totals.total,
     payload: { recipient, body },
+    layout: docType === "INVOICE" ? layout : "standard",
+    sellerCr,
+    sellerPhone,
   };
 
   function setItem(i: number, patch: Partial<Item>) {
@@ -171,7 +205,9 @@ export default function DocumentBuilder({
       tax_rate: financial ? totals.taxRate : 0,
       tax_amount: financial ? totals.taxAmount : 0,
       total_amount: financial ? totals.total : 0,
-      payload: financial ? {} : { recipient, body },
+      payload: financial
+        ? { layout: docType === "INVOICE" ? layout : "standard", sellerCr, sellerPhone }
+        : { recipient, body },
       client_id: clientId || null,
       template_id: templateId,
     };
@@ -351,6 +387,60 @@ export default function DocumentBuilder({
             </div>
           </div>
         </div>
+
+        {/* Invoice layout (INVOICE only) */}
+        {docType === "INVOICE" && (
+          <div className="card space-y-3 p-4">
+            <p className="text-sm font-semibold text-ink">Invoice layout</p>
+            <div className="flex gap-2">
+              {([
+                ["standard", "Standard"],
+                ["zatca", "Bilingual · عربي/EN"],
+              ] as const).map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setLayout(val)}
+                  className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-medium transition ${
+                    layout === val
+                      ? "border-brand-400 bg-brand-50 text-brand-700"
+                      : "border-slate-200 text-ink-soft hover:bg-slate-50"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {layout === "zatca" && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label" htmlFor="sellerCr">Seller CR number</label>
+                  <input
+                    id="sellerCr"
+                    className="field-input"
+                    value={sellerCr}
+                    onChange={(e) => setSellerCr(e.target.value)}
+                    placeholder="7034735410"
+                  />
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="sellerPhone">Company phone</label>
+                  <input
+                    id="sellerPhone"
+                    className="field-input"
+                    value={sellerPhone}
+                    onChange={(e) => setSellerPhone(e.target.value)}
+                    placeholder="0579812232"
+                  />
+                </div>
+                <p className="col-span-2 text-xs text-ink-muted">
+                  The bilingual layout shows seller VAT + CR and buyer name/address/VAT (from the
+                  selected client). Remembered for your next invoice.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Branding */}
         <div className="card space-y-4 p-4">
