@@ -12,6 +12,7 @@ const VALID: DocType[] = ["INVOICE", "OFFER_LETTER", "NOC", "POLICY_LETTER", "TE
 
 type Client = Pick<Tables<"clients">, "id" | "name" | "company_name" | "vat_number" | "address" | "logo_url">;
 type Template = Pick<Tables<"templates">, "id" | "doc_type" | "title" | "is_default">;
+type Product = Pick<Tables<"products">, "id" | "name" | "description" | "unit_price">;
 
 function NewDocumentInner() {
   const { org } = useAuth();
@@ -22,22 +23,29 @@ function NewDocumentInner() {
 
   const [clients, setClients] = useState<Client[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     if (!org) return;
     const supabase = createClient();
     (async () => {
-      const [{ data: c }, { data: t }] = await Promise.all([
+      const [{ data: c }, { data: t }, { data: p }] = await Promise.all([
         supabase
           .from("clients")
           .select("id, name, company_name, vat_number, address, logo_url")
           .eq("org_id", org.id)
           .order("created_at", { ascending: false }),
         supabase.from("templates").select("id, doc_type, title, is_default"),
+        supabase
+          .from("products")
+          .select("id, name, description, unit_price")
+          .eq("org_id", org.id)
+          .order("name", { ascending: true }),
       ]);
       setClients((c as Client[]) ?? []);
       setTemplates((t as Template[]) ?? []);
+      setProducts((p as Product[]) ?? []);
       setReady(true);
     })();
   }, [org]);
@@ -66,6 +74,7 @@ function NewDocumentInner() {
           }}
           clients={clients}
           templates={templates}
+          products={products}
           initialType={initialType}
         />
       ) : (

@@ -14,6 +14,7 @@ type Client = Pick<
   "id" | "name" | "company_name" | "vat_number" | "address" | "logo_url"
 >;
 type Template = Pick<Tables<"templates">, "id" | "doc_type" | "title" | "is_default">;
+type CatalogProduct = Pick<Tables<"products">, "id" | "name" | "description" | "unit_price">;
 type OrgLite = {
   id: string;
   name: string;
@@ -26,32 +27,58 @@ type OrgLite = {
 
 type Item = { description: string; quantity: number; unitPrice: number };
 
+/** Existing document loaded for editing. */
+export type ExistingDoc = {
+  id: string;
+  docType: DocType;
+  title: string;
+  clientId: string | null;
+  currency: string;
+  taxRate: number;
+  isRtl: boolean;
+  userLogoUrl: string | null;
+  clientLogoUrl: string | null;
+  items: Item[];
+  recipient: string;
+  body: string;
+};
+
 export default function DocumentBuilder({
   org,
   clients,
   templates,
+  products = [],
   initialType,
+  existing,
 }: {
   org: OrgLite;
   clients: Client[];
   templates: Template[];
+  products?: CatalogProduct[];
   initialType: DocType;
+  /** When present, the builder edits this document instead of creating one. */
+  existing?: ExistingDoc;
 }) {
   const router = useRouter();
-  const [docType, setDocType] = useState<DocType>(initialType);
+  const editing = !!existing;
+  const [docType, setDocType] = useState<DocType>(existing?.docType ?? initialType);
   const meta = docTypeMeta(docType);
 
-  const [title, setTitle] = useState("");
-  const [clientId, setClientId] = useState<string>("");
-  const [currency, setCurrency] = useState(org.currency);
-  const [taxRate, setTaxRate] = useState<number>(org.tax_rate);
-  const [isRtl, setIsRtl] = useState<boolean>(org.is_rtl);
-  const [userLogoUrl, setUserLogoUrl] = useState<string | null>(org.logo_url);
-  const [clientLogoOverride, setClientLogoOverride] = useState<string | null>(null);
+  const [title, setTitle] = useState(existing?.title ?? "");
+  const [clientId, setClientId] = useState<string>(existing?.clientId ?? "");
+  const [currency, setCurrency] = useState(existing?.currency ?? org.currency);
+  const [taxRate, setTaxRate] = useState<number>(existing?.taxRate ?? org.tax_rate);
+  const [isRtl, setIsRtl] = useState<boolean>(existing?.isRtl ?? org.is_rtl);
+  const [userLogoUrl, setUserLogoUrl] = useState<string | null>(existing?.userLogoUrl ?? org.logo_url);
+  const [clientLogoOverride, setClientLogoOverride] = useState<string | null>(
+    existing?.clientLogoUrl ?? null,
+  );
 
-  const [items, setItems] = useState<Item[]>([{ description: "", quantity: 1, unitPrice: 0 }]);
-  const [recipient, setRecipient] = useState("");
-  const [body, setBody] = useState("");
+  const [items, setItems] = useState<Item[]>(
+    existing?.items?.length ? existing.items : [{ description: "", quantity: 1, unitPrice: 0 }],
+  );
+  const [recipient, setRecipient] = useState(existing?.recipient ?? "");
+  const [body, setBody] = useState(existing?.body ?? "");
 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -99,59 +126,114 @@ export default function DocumentBuilder({
   function removeItem(i: number) {
     setItems((prev) => (prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev));
   }
+  function addFromCatalog(productId: string) {
+    const p = products.find((x) => x.id === productId);
+    if (!p) return;
+    const line: Item = {
+      description: p.description ? `${p.name} — ${p.description}` : p.name,
+      quantity: 1,
+      unitPrice: Number(p.unit_price),
+    };
+    setItems((prev) => {
+      const last = prev[prev.length - 1];
+      // Fill the trailing empty row if there is one, otherwise append.
+      if (last && !last.description.trim() && !last.unitPrice) {
+        return [...prev.slice(0, -1), line];
+      }
+      return [...prev, line];
+    });
+  }
+
+  const financial = meta.financial;
+
+  function itemRows(documentId: string) {
+    return items
+      .filter((it) => it.description.trim() || it.unitPrice > 0)
+      .map((it, idx) => ({
+        document_id: documentId,
+        description: it.description,
+        quantity: it.quantity,
+        unit_price: it.unitPrice,
+        total_price: lineTotal(it),
+        sort_order: idx,
+      }));
+  }
+
+  function docFields(templateId: string | null) {
+    return {
+      title: effectiveTitle,
+      doc_type: docType,
+      is_rtl: isRtl,
+      currency,
+      user_logo_url: userLogoUrl,
+      client_logo_url: clientLogoUrl,
+      subtotal: financial ? totals.subtotal : 0,
+      tax_rate: financial ? totals.taxRate : 0,
+      tax_amount: financial ? totals.taxAmount : 0,
+      total_amount: financial ? totals.total : 0,
+      payload: financial ? {} : { recipient, body },
+      client_id: clientId || null,
+      template_id: templateId,
+    };
+  }
 
   async function save() {
     setErr(null);
     setBusy(true);
     try {
       const supabase = createClient();
-      const template =
-        templates.find((t) => t.doc_type === docType && t.is_default) ||
-        templates.find((t) => t.doc_type === docType) ||
-        null;
+      const templateId =
+        (templates.find((t) => t.doc_type === docType && t.is_default) ||
+          templates.find((t) => t.doc_type === docType))?.id ?? null;
 
+      // ── Edit existing document ───────────────────────────────
+      if (existing) {
+        const { error: upErr } = await supabase
+          .from("documents")
+          .update(docFields(templateId))
+          .eq("id", existing.id);
+        if (upErr) throw upErr;
+
+        // Replace line items wholesale.
+        const { error: delErr } = await supabase
+          .from("document_items")
+          .delete()
+          .eq("document_id", existing.id);
+        if (delErr) throw delErr;
+
+        if (financial) {
+          const rows = itemRows(existing.id);
+          if (rows.length) {
+            const { error: itemsErr } = await supabase.from("document_items").insert(rows);
+            if (itemsErr) throw itemsErr;
+          }
+        }
+
+        router.push(`/documents/view?id=${existing.id}`);
+        return;
+      }
+
+      // ── Create new document ──────────────────────────────────
       const { data: numData, error: numErr } = await supabase.rpc("next_document_number", {
         p_org: org.id,
         p_type: docType,
       });
       if (numErr) throw numErr;
 
-      const financial = meta.financial;
       const { data: doc, error: docErr } = await supabase
         .from("documents")
         .insert({
           org_id: org.id,
-          title: effectiveTitle,
-          doc_type: docType,
           document_number: numData as string,
           status: "DRAFT",
-          is_rtl: isRtl,
-          currency,
-          user_logo_url: userLogoUrl,
-          client_logo_url: clientLogoUrl,
-          subtotal: financial ? totals.subtotal : 0,
-          tax_rate: financial ? totals.taxRate : 0,
-          tax_amount: financial ? totals.taxAmount : 0,
-          total_amount: financial ? totals.total : 0,
-          payload: financial ? {} : { recipient, body },
-          client_id: clientId || null,
-          template_id: template?.id ?? null,
+          ...docFields(templateId),
         })
         .select("id")
         .single();
       if (docErr) throw docErr;
 
       if (financial) {
-        const rows = items
-          .filter((it) => it.description.trim() || it.unitPrice > 0)
-          .map((it, idx) => ({
-            document_id: doc.id,
-            description: it.description,
-            quantity: it.quantity,
-            unit_price: it.unitPrice,
-            total_price: lineTotal(it),
-            sort_order: idx,
-          }));
+        const rows = itemRows(doc.id);
         if (rows.length) {
           const { error: itemsErr } = await supabase.from("document_items").insert(rows);
           if (itemsErr) throw itemsErr;
@@ -336,7 +418,29 @@ export default function DocumentBuilder({
               ))}
             </div>
 
-            <button type="button" onClick={addItem} className="btn-subtle w-full">+ Add line</button>
+            <div className="flex gap-2">
+              <button type="button" onClick={addItem} className="btn-subtle flex-1">+ Add line</button>
+              {products.length > 0 && (
+                <select
+                  aria-label="Add from catalogue"
+                  className="field-input flex-1 py-2"
+                  value=""
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      addFromCatalog(e.target.value);
+                      e.target.value = "";
+                    }
+                  }}
+                >
+                  <option value="">+ From catalogue…</option>
+                  {products.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {formatMoney(Number(p.unit_price), currency)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
 
             <div className="space-y-1 border-t border-slate-100 pt-3 text-sm">
               <Row label="Subtotal" value={formatMoney(totals.subtotal, currency)} />
@@ -363,7 +467,7 @@ export default function DocumentBuilder({
         {err && <p className="text-sm text-rose-600">{err}</p>}
 
         <button onClick={save} disabled={busy} className="btn-primary w-full py-3">
-          {busy ? "Saving…" : "Save document →"}
+          {busy ? "Saving…" : editing ? "Update document →" : "Save document →"}
         </button>
       </div>
 

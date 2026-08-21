@@ -112,7 +112,8 @@ function DocumentViewInner() {
           <span className="text-ink">{meta.number}</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/documents/new" className="btn-ghost">+ New</Link>
+          <Link href="/documents" className="btn-ghost">← All</Link>
+          <Link href={`/documents/edit?id=${meta.docId}`} className="btn-ghost">✎ Edit</Link>
           <DocumentToolbar documentId={meta.docId} status={meta.status} financial={meta.financial} />
         </div>
       </div>

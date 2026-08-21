@@ -7,6 +7,7 @@ const LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
   { href: "/documents", label: "Documents", icon: "📄" },
   { href: "/clients", label: "Clients", icon: "👥" },
+  { href: "/products", label: "Products", icon: "📦" },
 ];
 
 export default function SidebarNav() {

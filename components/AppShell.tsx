@@ -11,6 +11,7 @@ const MOBILE_LINKS = [
   { href: "/dashboard", label: "Home", icon: "🏠" },
   { href: "/documents", label: "Docs", icon: "📄" },
   { href: "/documents/new", label: "New", icon: "＋" },
+  { href: "/products", label: "Products", icon: "📦" },
   { href: "/clients", label: "Clients", icon: "👥" },
 ];
 
@@ -40,6 +41,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   async function handleSignOut() {
     await signOut();
     router.replace("/login");
+  }
+
+  // The single-document view renders "bare" — no sidebar / top bar / bottom nav —
+  // so only the invoice sheet (and its own action toolbar) is on screen.
+  const bare = pathname?.startsWith("/documents/view");
+  if (bare) {
+    return (
+      <div className="min-h-screen bg-slate-100">
+        <main className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-8">{children}</main>
+      </div>
+    );
   }
 
   return (
@@ -85,7 +97,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-slate-200 bg-white/95 backdrop-blur lg:hidden">
         {MOBILE_LINKS.map((l) => {
           const active =
             l.href === "/documents"
