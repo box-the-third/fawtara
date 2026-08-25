@@ -10,7 +10,7 @@ import type { DocType, Tables } from "@/lib/database.types";
 
 const VALID: DocType[] = ["INVOICE", "OFFER_LETTER", "NOC", "POLICY_LETTER", "TENDER", "CUSTOM"];
 
-type Client = Pick<Tables<"clients">, "id" | "name" | "company_name" | "vat_number" | "address" | "logo_url">;
+type Client = Pick<Tables<"clients">, "id" | "name" | "company_name" | "vat_number" | "cr_number" | "address" | "logo_url">;
 type Template = Pick<Tables<"templates">, "id" | "doc_type" | "title" | "is_default">;
 type Product = Pick<Tables<"products">, "id" | "name" | "description" | "unit_price">;
 
@@ -33,7 +33,7 @@ function NewDocumentInner() {
       const [{ data: c }, { data: t }, { data: p }] = await Promise.all([
         supabase
           .from("clients")
-          .select("id, name, company_name, vat_number, address, logo_url")
+          .select("id, name, company_name, vat_number, cr_number, address, logo_url")
           .eq("org_id", org.id)
           .order("created_at", { ascending: false }),
         supabase.from("templates").select("id, doc_type, title, is_default"),

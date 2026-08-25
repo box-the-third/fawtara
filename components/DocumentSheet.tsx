@@ -24,6 +24,7 @@ export type SheetData = {
     companyName: string | null;
     vatNumber: string | null;
     address: string | null;
+    crNumber?: string | null;
   } | null;
   userLogoUrl: string | null;
   clientLogoUrl: string | null;

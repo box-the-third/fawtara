@@ -45,7 +45,7 @@ function DocumentViewInner() {
         doc.client_id
           ? supabase
               .from("clients")
-              .select("name, company_name, vat_number, address")
+              .select("name, company_name, vat_number, cr_number, address")
               .eq("id", doc.client_id)
               .single()
           : Promise.resolve({ data: null }),
@@ -59,7 +59,13 @@ function DocumentViewInner() {
         sellerPhone?: string;
       };
       const clientRow = clientRes.data as
-        | { name: string; company_name: string | null; vat_number: string | null; address: string | null }
+        | {
+            name: string;
+            company_name: string | null;
+            vat_number: string | null;
+            cr_number: string | null;
+            address: string | null;
+          }
         | null;
 
       setSheet({
@@ -77,6 +83,7 @@ function DocumentViewInner() {
               companyName: clientRow.company_name,
               vatNumber: clientRow.vat_number,
               address: clientRow.address,
+              crNumber: clientRow.cr_number,
             }
           : null,
         userLogoUrl: doc.user_logo_url ?? org.logo_url,

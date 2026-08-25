@@ -11,10 +11,28 @@ type Client = Tables<"clients">;
 export default function ClientManager({ orgId, initial }: { orgId: string; initial: Client[] }) {
   const router = useRouter();
   const [clients, setClients] = useState<Client[]>(initial);
-  const [open, setOpen] = useState(initial.length === 0);
+  const [formOpen, setFormOpen] = useState(initial.length === 0);
+  const [editing, setEditing] = useState<Client | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  function startAdd() {
+    setEditing(null);
+    setLogoUrl(null);
+    setErr(null);
+    setFormOpen(true);
+  }
+  function startEdit(c: Client) {
+    setEditing(c);
+    setLogoUrl(c.logo_url);
+    setErr(null);
+    setFormOpen(true);
+  }
+  function closeForm() {
+    setFormOpen(false);
+    setEditing(null);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -22,30 +40,40 @@ export default function ClientManager({ orgId, initial }: { orgId: string; initi
     const fd = new FormData(form);
     setErr(null);
     setBusy(true);
+    const fields = {
+      name: String(fd.get("name") || "").trim(),
+      company_name: String(fd.get("company_name") || "").trim() || null,
+      email: String(fd.get("email") || "").trim() || null,
+      phone: String(fd.get("phone") || "").trim() || null,
+      vat_number: String(fd.get("vat_number") || "").trim() || null,
+      cr_number: String(fd.get("cr_number") || "").trim() || null,
+      address: String(fd.get("address") || "").trim() || null,
+      logo_url: logoUrl,
+    };
     try {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("clients")
-        .insert({
-          org_id: orgId,
-          name: String(fd.get("name") || "").trim(),
-          company_name: String(fd.get("company_name") || "").trim() || null,
-          email: String(fd.get("email") || "").trim() || null,
-          phone: String(fd.get("phone") || "").trim() || null,
-          vat_number: String(fd.get("vat_number") || "").trim() || null,
-          address: String(fd.get("address") || "").trim() || null,
-          logo_url: logoUrl,
-        })
-        .select("*")
-        .single();
-      if (error) throw error;
-      setClients((prev) => [data, ...prev]);
-      form.reset();
-      setLogoUrl(null);
-      setOpen(false);
+      if (editing) {
+        const { data, error } = await supabase
+          .from("clients")
+          .update(fields)
+          .eq("id", editing.id)
+          .select("*")
+          .single();
+        if (error) throw error;
+        setClients((prev) => prev.map((c) => (c.id === editing.id ? data : c)));
+      } else {
+        const { data, error } = await supabase
+          .from("clients")
+          .insert({ org_id: orgId, ...fields })
+          .select("*")
+          .single();
+        if (error) throw error;
+        setClients((prev) => [data, ...prev]);
+      }
+      closeForm();
       router.refresh();
     } catch (e: unknown) {
-      setErr(e instanceof Error ? e.message : "Could not add client");
+      setErr(e instanceof Error ? e.message : "Could not save client");
     } finally {
       setBusy(false);
     }
@@ -67,12 +95,19 @@ export default function ClientManager({ orgId, initial }: { orgId: string; initi
                     (c.company_name || c.name).charAt(0)
                   )}
                 </div>
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold text-ink">{c.company_name || c.name}</p>
                   {c.company_name && <p className="truncate text-sm text-ink-soft">{c.name}</p>}
                   {c.email && <p className="truncate text-xs text-ink-muted">{c.email}</p>}
                   {c.vat_number && <p className="text-xs text-ink-muted">VAT: {c.vat_number}</p>}
+                  {c.cr_number && <p className="text-xs text-ink-muted">CR: {c.cr_number}</p>}
                 </div>
+                <button
+                  onClick={() => startEdit(c)}
+                  className="shrink-0 text-xs font-medium text-brand-600 hover:underline"
+                >
+                  Edit
+                </button>
               </div>
             ))}
           </div>
@@ -85,52 +120,58 @@ export default function ClientManager({ orgId, initial }: { orgId: string; initi
         )}
       </div>
 
-      {/* Add form */}
+      {/* Add / edit form */}
       <div className="lg:sticky lg:top-6 lg:self-start">
-        {open ? (
-          <form onSubmit={onSubmit} className="card space-y-4 p-5">
+        {formOpen ? (
+          <form key={editing?.id ?? "new"} onSubmit={onSubmit} className="card space-y-4 p-5">
             <div className="flex items-center justify-between">
-              <p className="font-semibold text-ink">Add a client</p>
-              {clients.length > 0 && (
-                <button type="button" onClick={() => setOpen(false)} className="text-sm text-ink-muted hover:text-ink">
+              <p className="font-semibold text-ink">{editing ? "Edit client" : "Add a client"}</p>
+              {(clients.length > 0 || editing) && (
+                <button type="button" onClick={closeForm} className="text-sm text-ink-muted hover:text-ink">
                   Cancel
                 </button>
               )}
             </div>
             <div>
               <label className="field-label" htmlFor="name">Contact name</label>
-              <input id="name" name="name" required className="field-input" placeholder="Ahmed Al-Salem" />
+              <input id="name" name="name" required className="field-input" placeholder="Ahmed Al-Salem" defaultValue={editing?.name ?? ""} />
             </div>
             <div>
               <label className="field-label" htmlFor="company_name">Company</label>
-              <input id="company_name" name="company_name" className="field-input" placeholder="Al Salem Group" />
+              <input id="company_name" name="company_name" className="field-input" placeholder="Al Salem Group" defaultValue={editing?.company_name ?? ""} />
             </div>
             <LogoUpload value={logoUrl} onChange={setLogoUrl} label="Client logo" folder="client-logos" />
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="field-label" htmlFor="email">Email</label>
-                <input id="email" name="email" type="email" className="field-input" />
+                <input id="email" name="email" type="email" className="field-input" defaultValue={editing?.email ?? ""} />
               </div>
               <div>
                 <label className="field-label" htmlFor="phone">Phone</label>
-                <input id="phone" name="phone" className="field-input" />
+                <input id="phone" name="phone" className="field-input" defaultValue={editing?.phone ?? ""} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="field-label" htmlFor="vat_number">VAT number</label>
+                <input id="vat_number" name="vat_number" className="field-input" defaultValue={editing?.vat_number ?? ""} />
+              </div>
+              <div>
+                <label className="field-label" htmlFor="cr_number">CR number</label>
+                <input id="cr_number" name="cr_number" className="field-input" placeholder="7034735410" defaultValue={editing?.cr_number ?? ""} />
               </div>
             </div>
             <div>
-              <label className="field-label" htmlFor="vat_number">VAT number</label>
-              <input id="vat_number" name="vat_number" className="field-input" />
-            </div>
-            <div>
               <label className="field-label" htmlFor="address">Address</label>
-              <textarea id="address" name="address" rows={2} className="field-input" />
+              <textarea id="address" name="address" rows={2} className="field-input" defaultValue={editing?.address ?? ""} />
             </div>
             {err && <p className="text-sm text-rose-600">{err}</p>}
             <button type="submit" disabled={busy} className="btn-primary w-full">
-              {busy ? "Saving…" : "Add client"}
+              {busy ? "Saving…" : editing ? "Save changes" : "Add client"}
             </button>
           </form>
         ) : (
-          <button onClick={() => setOpen(true)} className="btn-primary w-full py-3">
+          <button onClick={startAdd} className="btn-primary w-full py-3">
             + Add client
           </button>
         )}

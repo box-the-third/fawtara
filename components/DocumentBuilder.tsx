@@ -11,7 +11,7 @@ import type { DocType, Tables } from "@/lib/database.types";
 
 type Client = Pick<
   Tables<"clients">,
-  "id" | "name" | "company_name" | "vat_number" | "address" | "logo_url"
+  "id" | "name" | "company_name" | "vat_number" | "cr_number" | "address" | "logo_url"
 >;
 type Template = Pick<Tables<"templates">, "id" | "doc_type" | "title" | "is_default">;
 type CatalogProduct = Pick<Tables<"products">, "id" | "name" | "description" | "unit_price">;
@@ -136,6 +136,7 @@ export default function DocumentBuilder({
           companyName: client.company_name,
           vatNumber: client.vat_number,
           address: client.address,
+          crNumber: client.cr_number,
         }
       : null,
     userLogoUrl,

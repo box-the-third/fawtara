@@ -97,6 +97,10 @@ export default function ZatcaInvoiceSheet({ data }: { data: SheetData }) {
             <Cell><BL en="VAT No:" ar="الرقم الضريبي" /> {data.client?.vatNumber || "—"}</Cell>
             <Cell> </Cell>
           </tr>
+          <tr>
+            <Cell><BL en="CR No:" ar="رقم السجل التجاري" /> {data.client?.crNumber || "—"}</Cell>
+            <Cell> </Cell>
+          </tr>
         </tbody>
       </table>
 
