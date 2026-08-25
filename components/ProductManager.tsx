@@ -221,7 +221,7 @@ function ImportPanel({ orgId, onImported }: { orgId: string; onImported: (rows: 
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <a href={templateHref} download="fawtara-products-template.csv" className="btn-subtle">
+          <a href={templateHref} download="efatoora-products-template.csv" className="btn-subtle">
             Template
           </a>
           <label className="btn-primary cursor-pointer">

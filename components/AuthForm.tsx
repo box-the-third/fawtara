@@ -133,7 +133,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       <p className="mt-6 text-center text-sm text-ink-soft">
         {mode === "signin" ? (
           <>
-            New to Fawtara?{" "}
+            New to efatoora?{" "}
             <Link href="/signup" className="font-semibold text-brand-600 hover:underline">
               Create an account
             </Link>

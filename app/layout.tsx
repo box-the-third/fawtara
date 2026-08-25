@@ -10,7 +10,7 @@ const cairo = Cairo({
 });
 
 export const metadata: Metadata = {
-  title: "Fawtara — Documents & Tax Invoices, in Arabic or English",
+  title: "efatoora — Documents & Tax Invoices, in Arabic or English",
   description:
     "Create tax invoices, tenders, offer letters and NOCs with native Arabic (RTL) support, dual-branding and one-click PDF export.",
 };

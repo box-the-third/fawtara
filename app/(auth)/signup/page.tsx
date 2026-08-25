@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import AuthForm from "@/components/AuthForm";
 
-export const metadata = { title: "Create account · Fawtara" };
+export const metadata = { title: "Create account · efatoora" };
 
 export default function SignupPage() {
   return (
